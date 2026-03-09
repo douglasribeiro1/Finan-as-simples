@@ -162,7 +162,7 @@
             </div>
 
             <!-- Modal / Lista de Lançamentos (Carrega sob demanda) -->
-            <div v-if="showTransactions" class="fixed inset-0 bg-gray-900/40 z-50 flex flex-col justify-end" @click.self="toggleTransactions">
+            <div v-if="showTransactions" class="fixed inset-0 bg-gray-900/40 z-40 flex flex-col justify-end" @click.self="toggleTransactions">
                 <div class="bg-white rounded-t-3xl w-full max-h-[75vh] flex flex-col shadow-2xl animate-slide-up">
                     <div class="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-3xl">
                         <h3 class="font-bold text-gray-800">Lançamentos ({{ selectedMonth }})</h3>
@@ -173,19 +173,75 @@
                             Nenhum gasto neste mês ainda.
                         </div>
                         <div v-else class="space-y-3">
-                            <div v-for="tx in transactions" :key="tx.id" class="flex justify-between items-center p-3 border rounded-xl bg-gray-50">
-                                <div>
-                                    <div class="font-semibold text-gray-800">{{ tx.name || 'Gasto sem nome' }}</div>
-                                    <div class="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                                        <span class="w-2 h-2 rounded-full" :class="tx.method === 'credit' ? 'bg-blue-500' : 'bg-purple-500'"></span>
-                                        {{ tx.method === 'credit' ? 'Crédito' : 'Débito' }}
+                            <div v-for="tx in transactions" :key="tx.id" class="flex flex-col p-3 border rounded-xl bg-gray-50">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <div class="font-semibold text-gray-800">{{ tx.name || 'Gasto sem nome' }}</div>
+                                        <div class="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                            <span class="w-2 h-2 rounded-full" :class="tx.method === 'credit' ? 'bg-blue-500' : 'bg-purple-500'"></span>
+                                            {{ tx.method === 'credit' ? 'Crédito' : 'Débito' }}
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="font-bold text-gray-800">
-                                    {{ formatCurrency(tx.amount) }}
+                                    <div class="text-right">
+                                        <div class="font-bold text-gray-800">{{ formatCurrency(tx.amount) }}</div>
+                                        <div class="flex gap-2 mt-2 justify-end">
+                                            <button @click="openEditModal(tx)" class="text-gray-400 hover:text-blue-500 p-1 bg-white rounded-md shadow-sm border transition">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                            </button>
+                                            <button @click="promptDelete(tx)" class="text-gray-400 hover:text-red-500 p-1 bg-white rounded-md shadow-sm border transition">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Apagar Confirmação -->
+            <div v-if="showDeleteModal" class="fixed inset-0 bg-gray-900/60 z-[60] flex flex-col justify-center items-center p-4">
+                <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl animate-slide-up text-center">
+                    <div class="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    </div>
+                    <h3 class="font-bold text-gray-800 text-lg mb-2">Apagar Lançamento?</h3>
+                    <p class="text-gray-500 text-sm mb-6">Você tem certeza que deseja apagar o gasto <span class="font-bold text-gray-800">{{ txToDelete?.name || 'sem nome' }}</span> no valor de <span class="font-bold text-gray-800">{{ formatCurrency(txToDelete?.amount) }}</span>?</p>
+                    <div class="flex gap-3">
+                        <button @click="showDeleteModal = false" class="flex-1 py-3 rounded-xl font-semibold text-gray-600 bg-gray-100 active:bg-gray-200 transition">Cancelar</button>
+                        <button @click="confirmDelete" class="flex-1 py-3 rounded-xl font-bold text-white bg-red-500 active:bg-red-600 transition" :disabled="isSaving">
+                            {{ isSaving ? 'Apagando...' : 'Apagar' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Editar Lançamento -->
+            <div v-if="showEditModal" class="fixed inset-0 bg-gray-900/60 z-[60] flex flex-col justify-center items-center p-4">
+                <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl animate-slide-up">
+                    <h3 class="font-bold text-gray-800 text-lg mb-4">Editar Gasto</h3>
+                    
+                    <div class="mb-4">
+                        <label class="block text-xs text-gray-500 mb-1 uppercase font-semibold">Valor</label>
+                        <input type="tel" v-model="editDisplayAmount" class="w-full text-3xl font-bold text-gray-800 border-b-2 border-gray-200 pb-1 focus:border-blue-500 outline-none bg-transparent transition">
+                    </div>
+
+                    <div class="flex gap-2 mb-4">
+                        <button @click="editTxForm.method = 'credit'" :class="editTxForm.method === 'credit' ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-50 text-gray-600 border-gray-200'" class="flex-1 py-2 rounded-xl border font-semibold text-sm transition flex justify-center items-center gap-1">💳 Crédito</button>
+                        <button @click="editTxForm.method = 'debit'" :class="editTxForm.method === 'debit' ? 'bg-purple-500 text-white border-purple-500' : 'bg-gray-50 text-gray-600 border-gray-200'" class="flex-1 py-2 rounded-xl border font-semibold text-sm transition flex justify-center items-center gap-1">🏦 Débito</button>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-xs text-gray-500 mb-1 uppercase font-semibold">Descrição</label>
+                        <input type="text" v-model="editTxForm.name" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: Padaria">
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button @click="showEditModal = false" class="flex-1 py-3 rounded-xl font-semibold text-gray-600 bg-gray-100 active:bg-gray-200 transition">Cancelar</button>
+                        <button @click="saveEdit" class="flex-1 py-3 rounded-xl font-bold text-white bg-blue-500 active:bg-blue-600 transition" :disabled="editTxForm.rawValue === 0 || isSaving">
+                            {{ isSaving ? 'Salvando...' : 'Salvar' }}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -271,6 +327,15 @@
                 const showBudgetModal = ref(false);
                 const budgetInput = ref('');
 
+                // Estado de Exclusão
+                const showDeleteModal = ref(false);
+                const txToDelete = ref(null);
+
+                // Estado de Edição
+                const showEditModal = ref(false);
+                const txToEdit = ref(null);
+                const editTxForm = ref({ rawValue: 0, method: 'debit', name: '' });
+
                 let monthUnsubscribe = null;
 
                 // Monitorar Conexão para UX
@@ -327,17 +392,27 @@
 
                 const logout = () => signOut(auth);
 
-                // --- Input de Moeda Inteligente ---
-                // Transforma digitação '2500' em 'R$ 25,00'
+                // --- Input de Moeda Inteligente (Novo Gasto) ---
                 const displayAmount = computed({
                     get: () => {
                         if (newTx.value.rawValue === 0) return '';
                         return (newTx.value.rawValue / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                     },
                     set: (val) => {
-                        // Remove tudo que não for número
                         const numStr = val.replace(/\D/g, '');
                         newTx.value.rawValue = numStr ? parseInt(numStr, 10) : 0;
+                    }
+                });
+
+                // --- Input de Moeda Inteligente (Editar Gasto) ---
+                const editDisplayAmount = computed({
+                    get: () => {
+                        if (editTxForm.value.rawValue === 0) return '';
+                        return (editTxForm.value.rawValue / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    },
+                    set: (val) => {
+                        const numStr = val.replace(/\D/g, '');
+                        editTxForm.value.rawValue = numStr ? parseInt(numStr, 10) : 0;
                     }
                 });
 
@@ -350,19 +425,16 @@
                 });
 
                 // --- Firestore Lógica ---
-                
-                // Observa mudança de mês para carregar os dados agregados
                 watch(selectedMonth, () => {
                     if (user.value) {
                         listenToMonth();
                         if (showTransactions.value) {
-                            loadTransactions(); // Recarrega se a lista estiver aberta
+                            loadTransactions();
                         }
                     }
                 });
 
                 const getMonthRef = () => {
-                    // Regra Estrita: artifacts/{appId}/users/{userId}/months/{monthId}
                     return doc(db, 'artifacts', appId, 'users', user.value.uid, 'months', selectedMonth.value);
                 };
 
@@ -373,7 +445,6 @@
                     monthUnsubscribe = onSnapshot(ref, (docSnap) => {
                         if (docSnap.exists()) {
                             const data = docSnap.data();
-                            // Garante que mesmo que falte algum campo, ele inicie em 0
                             monthData.value = {
                                 budget: data.budget || 0,
                                 totalSpent: data.totalSpent || 0,
@@ -381,7 +452,6 @@
                                 debitSpent: data.debitSpent || 0
                             };
                         } else {
-                            // Mês não existe ainda
                             monthData.value = { budget: 0, totalSpent: 0, creditSpent: 0, debitSpent: 0 };
                         }
                     }, (error) => {
@@ -389,6 +459,7 @@
                     });
                 };
 
+                // --- Operações de Lançamentos ---
                 const openBudgetModal = () => {
                     budgetInput.value = monthData.value.budget || '';
                     showBudgetModal.value = true;
@@ -421,12 +492,8 @@
                     try {
                         const monthRef = getMonthRef();
                         const txRef = doc(collection(monthRef, 'transactions'));
-                        
-                        // Utilizamos batch para garantir que o resumo e a lista fiquem em sincronia.
-                        // O batch funciona offline perfeitamente no Firebase!
                         const batch = writeBatch(db);
                         
-                        // 1. Salvar a transação em si
                         batch.set(txRef, {
                             amount: amountValue,
                             method: method,
@@ -434,11 +501,7 @@
                             timestamp: new Date().getTime()
                         });
 
-                        // 2. Incrementar os contadores no documento principal do mês
-                        // Isso economiza leituras (não precisamos carregar a lista pra saber o total)
-                        const updates = {
-                            totalSpent: increment(amountValue)
-                        };
+                        const updates = { totalSpent: increment(amountValue) };
                         if (method === 'credit') {
                             updates.creditSpent = increment(amountValue);
                         } else {
@@ -448,20 +511,31 @@
 
                         await batch.commit();
 
-                        // Reseta o formulário
                         newTx.value = { rawValue: 0, method: 'debit', name: '' };
                         
-                        // Se a lista estiver aberta, recarregar (no app real faríamos onSnapshot da lista,
-                        // mas para salvar leituras só carregamos quando clica no botão).
                         if (showTransactions.value) {
                             loadTransactions();
                         }
-
                     } catch (e) {
                         console.error("Erro ao salvar", e);
-                        // Alertas nativos não são suportados em iFrames de preview
                     } finally {
                         isSaving.value = false;
+                    }
+                };
+
+                const loadTransactions = async () => {
+                    if (!user.value) return;
+                    try {
+                        const monthRef = getMonthRef();
+                        const snap = await getDocs(collection(monthRef, 'transactions'));
+                        const docs = [];
+                        snap.forEach(doc => {
+                            docs.push({ id: doc.id, ...doc.data() });
+                        });
+                        docs.sort((a, b) => b.timestamp - a.timestamp);
+                        transactions.value = docs;
+                    } catch (e) {
+                        console.error("Erro ao carregar transações", e);
                     }
                 };
 
@@ -472,21 +546,117 @@
                     }
                 };
 
-                const loadTransactions = async () => {
-                    if (!user.value) return;
+                // --- Lógica de Apagar ---
+                const promptDelete = (tx) => {
+                    txToDelete.value = tx;
+                    showDeleteModal.value = true;
+                };
+
+                const confirmDelete = async () => {
+                    if (!txToDelete.value || !user.value) return;
+                    isSaving.value = true;
+                    
+                    try {
+                        const tx = txToDelete.value;
+                        const monthRef = getMonthRef();
+                        const txRef = doc(collection(monthRef, 'transactions'), tx.id);
+                        const batch = writeBatch(db);
+                        
+                        // Deleta do banco
+                        batch.delete(txRef);
+                        
+                        // Deduz os totais
+                        const updates = { totalSpent: increment(-tx.amount) };
+                        if (tx.method === 'credit') {
+                            updates.creditSpent = increment(-tx.amount);
+                        } else {
+                            updates.debitSpent = increment(-tx.amount);
+                        }
+                        batch.set(monthRef, updates, { merge: true });
+                        
+                        await batch.commit();
+                        showDeleteModal.value = false;
+                        txToDelete.value = null;
+                        
+                        loadTransactions(); // Recarrega a lista
+                    } catch (e) {
+                        console.error("Erro ao apagar", e);
+                    } finally {
+                        isSaving.value = false;
+                    }
+                };
+
+                // --- Lógica de Editar ---
+                const openEditModal = (tx) => {
+                    txToEdit.value = tx;
+                    editTxForm.value = {
+                        rawValue: Math.round(tx.amount * 100),
+                        method: tx.method,
+                        name: tx.name || ''
+                    };
+                    showEditModal.value = true;
+                };
+
+                const saveEdit = async () => {
+                    if (!txToEdit.value || editTxForm.value.rawValue <= 0 || !user.value) return;
+                    isSaving.value = true;
+
+                    const oldTx = txToEdit.value;
+                    const newAmount = editTxForm.value.rawValue / 100;
+                    const newMethod = editTxForm.value.method;
+
                     try {
                         const monthRef = getMonthRef();
-                        // Buscamos a subcoleção (Sem query complexa, ordenamos no JS conforme regra)
-                        const snap = await getDocs(collection(monthRef, 'transactions'));
-                        const docs = [];
-                        snap.forEach(doc => {
-                            docs.push({ id: doc.id, ...doc.data() });
-                        });
-                        // Ordenar localmente (Mais recente primeiro)
-                        docs.sort((a, b) => b.timestamp - a.timestamp);
-                        transactions.value = docs;
+                        const txRef = doc(collection(monthRef, 'transactions'), oldTx.id);
+                        const batch = writeBatch(db);
+
+                        // Atualiza o próprio gasto
+                        batch.set(txRef, {
+                            amount: newAmount,
+                            method: newMethod,
+                            name: editTxForm.value.name,
+                            timestamp: oldTx.timestamp // Mantém a data original
+                        }, { merge: true });
+
+                        // Atualiza os cálculos totais
+                        const updates = {};
+                        const amountDiff = newAmount - oldTx.amount;
+                        
+                        updates.totalSpent = increment(amountDiff);
+
+                        if (oldTx.method === newMethod) {
+                            // Se apenas o valor mudou (método é o mesmo)
+                            if (newMethod === 'credit') {
+                                updates.creditSpent = increment(amountDiff);
+                            } else {
+                                updates.debitSpent = increment(amountDiff);
+                            }
+                        } else {
+                            // Se o método mudou, removemos todo o valor do método antigo e adicionamos ao novo
+                            if (oldTx.method === 'credit') {
+                                updates.creditSpent = increment(-oldTx.amount);
+                            } else {
+                                updates.debitSpent = increment(-oldTx.amount);
+                            }
+                            
+                            if (newMethod === 'credit') {
+                                updates.creditSpent = increment(newAmount);
+                            } else {
+                                updates.debitSpent = increment(newAmount);
+                            }
+                        }
+
+                        batch.set(monthRef, updates, { merge: true });
+                        await batch.commit();
+
+                        showEditModal.value = false;
+                        txToEdit.value = null;
+                        
+                        loadTransactions(); // Recarrega a lista atualizada
                     } catch (e) {
-                        console.error("Erro ao carregar transações", e);
+                        console.error("Erro ao editar", e);
+                    } finally {
+                        isSaving.value = false;
                     }
                 };
 
@@ -495,7 +665,9 @@
                     isOnline, selectedMonth, monthData, remainingBudget,
                     newTx, displayAmount, isSaving, saveTransaction, 
                     showBudgetModal, budgetInput, openBudgetModal, closeBudgetModal, saveBudget,
-                    showTransactions, transactions, toggleTransactions, formatCurrency
+                    showTransactions, transactions, toggleTransactions, formatCurrency,
+                    showDeleteModal, txToDelete, promptDelete, confirmDelete,
+                    showEditModal, editTxForm, editDisplayAmount, openEditModal, saveEdit
                 };
             }
         }).mount('#app');
