@@ -209,14 +209,15 @@
         import { getAuth, signInWithCustomToken, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, enableIndexedDbPersistence, doc, setDoc, getDocs, collection, onSnapshot, writeBatch, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Setup Firebase
-        let firebaseConfig;
-        try {
-            firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        } catch (e) {
-            console.error("Firebase config error", e);
-            firebaseConfig = {}; // Fallback
-        }
+        // Setup Firebase com os dados do seu projeto
+        const firebaseConfig = {
+            apiKey: "AIzaSyAjAA6iBWDe71Kgi-9nvutIviG7eebcUbs",
+            authDomain: "financas-simples-9b104.firebaseapp.com",
+            projectId: "financas-simples-9b104",
+            storageBucket: "financas-simples-9b104.firebasestorage.app",
+            messagingSenderId: "569266744288",
+            appId: "1:569266744288:web:507dc681e54b0de9b21985"
+        };
         
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
